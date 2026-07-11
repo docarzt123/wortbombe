@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#7c2d12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Wortbombe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #ea580c 0%, #7c2d12 55%, #431407 100%);
+    color: #fff;
+    user-select: none; -webkit-user-select: none;
+    overflow: hidden;
+  }
+  #app {
+    height: 100%; max-width: 480px; margin: 0 auto;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    gap: 18px;
+  }
+  #app.scroll { justify-content: flex-start; overflow-y: auto; }
+  h1 { font-size: 2.5rem; letter-spacing: 1px; }
+  .emoji-big { font-size: 5rem; line-height: 1; }
+  .sub { color: #fed7aa; font-size: 1.1rem; }
+  .card { background: rgba(0,0,0,0.22); border-radius: 24px; padding: 20px; width: 100%; }
+  .label { color: #fed7aa; font-size: 1rem; margin-bottom: 12px; }
+  .btn {
+    width: 100%; padding: 20px; font-size: 1.4rem; font-weight: bold;
+    border: none; border-radius: 20px; background: #22c55e; color: #fff;
+    box-shadow: 0 5px 0 #15803d;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #15803d; }
+  .btn.orange { background: #f59e0b; box-shadow: 0 5px 0 #b45309; }
+  .btn.orange:active { box-shadow: 0 2px 0 #b45309; }
+  .btn.ghost { background: transparent; box-shadow: none; border: 2px solid rgba(255,255,255,0.4); font-size: 1.1rem; padding: 14px; }
+  .opts { display: flex; gap: 8px; }
+  .opt {
+    flex: 1; border: 2px solid rgba(255,255,255,0.35); background: transparent; color: #fff;
+    border-radius: 14px; padding: 12px 6px; font-size: 1rem; font-weight: bold;
+  }
+  .opt.active { background: #fbbf24; border-color: #fbbf24; color: #431407; }
+  .kat { font-size: 2.3rem; font-weight: 800; line-height: 1.15; overflow-wrap: break-word; }
+  .kat-lead { color: #fed7aa; font-size: 1.1rem; margin-bottom: 6px; }
+  .bomb { font-size: 6.5rem; line-height: 1; display: inline-block; }
+  .shake { animation: shake 0.5s infinite; }
+  @keyframes shake {
+    0%,100% { transform: translate(0,0) rotate(0); }
+    25% { transform: translate(-3px,2px) rotate(-4deg); }
+    50% { transform: translate(3px,-2px) rotate(4deg); }
+    75% { transform: translate(-2px,-2px) rotate(-2deg); }
+  }
+  .hidden { display: none !important; }
+  #flash { position: fixed; inset: 0; background: #dc2626; opacity: 0; pointer-events: none; transition: opacity 0.08s; z-index: 5; }
+  #flash.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="flash"></div>
+<div id="app"></div>
+<script>
+// Kategorien = Aufgaben, zu denen man reihum ein Wort sagen muss.
+const FAMILIE = [
+  "ein Tier","eine Farbe","ein Obst","ein Gemüse","etwas zum Essen","etwas zum Trinken","ein Spielzeug",
+  "ein Tier im Zoo","ein Tier auf dem Bauernhof","etwas, das fliegen kann","etwas, das schwimmen kann",
+  "etwas Rundes","etwas Rotes","etwas Gelbes","etwas Grünes","etwas Blaues","etwas, das leuchtet",
+  "etwas im Badezimmer","etwas in der Küche","etwas im Kinderzimmer","etwas in der Schule","ein Schulfach",
+  "ein Beruf","ein Fahrzeug","eine Eissorte","ein Pizzabelag","eine Süßigkeit","ein Kuchen","ein Getränk",
+  "ein Körperteil","ein Kleidungsstück","ein Schuh","etwas, das man anzieht wenn es regnet",
+  "ein Musikinstrument","eine Sportart","ein Ballspiel","ein Superheld","eine Zeichentrickfigur",
+  "eine Märchenfigur","ein Brettspiel","eine Blume","ein Baum","ein Wetter","etwas am Strand",
+  "etwas an Weihnachten","etwas an Ostern","etwas zum Geburtstag","ein Vorname für ein Mädchen",
+  "ein Vorname für einen Jungen","ein Land","eine Stadt","ein Fluss","ein Berg","etwas, das piept",
+  "etwas, das stinkt","etwas Weiches","etwas Hartes","etwas Kaltes","etwas Heißes","etwas Klebriges",
+  "etwas Schnelles","etwas Langsames","etwas Großes","etwas Winziges","etwas, das man werfen kann",
+  "etwas, das kaputtgehen kann","etwas aus Holz","etwas aus Glas","etwas aus Metall","etwas Nasses",
+  "ein wildes Tier","ein Haustier","ein Insekt","ein Vogel","ein Fisch","eine Schlange oder Echse",
+  "etwas im Supermarkt","etwas im Kühlschrank","etwas auf dem Spielplatz","etwas im Wald",
+  "etwas im Weltall","ein Planet","etwas, das man im Auto findet","etwas in der Hosentasche",
+  "eine Frucht mit Kernen","etwas mit Rädern","etwas mit Knöpfen","etwas mit einem Schwanz",
+  "ein Tier mit Fell","ein Tier mit Streifen","ein Tier, das springt","ein Dino","eine Frucht, die gelb ist",
+  "etwas, das man in den Ferien macht","ein Zirkustier","etwas im Zirkus","ein Gruselwesen",
+  "ein Meerestier","etwas, das kalt macht","etwas Süßes","etwas Saures","etwas Salziges","eine Käsesorte",
+  "eine Nudelsorte","eine Brotsorte","etwas, das man aufs Brot tut","ein Werkzeug","etwas im Garten",
+  "eine Jahreszeit-Sache","ein Freizeitpark-Ding","ein Verkehrsschild oder Ampel-Wort","etwas, das man teilt"
+];
+const PARTY = [
+  "ein Film","eine Serie","ein Schauspieler","eine Sängerin oder Sänger","eine Band","ein Filmbösewicht",
+  "ein berühmter Sportler","ein Fußballverein","eine Automarke","eine Handymarke","eine Modemarke",
+  "eine Fastfood-Kette","ein Cocktail","eine Biermarke","ein YouTuber oder Influencer","eine App",
+  "eine Hauptstadt","ein Urlaubsland","eine Insel","ein Nationalgericht","eine berühmte Sehenswürdigkeit",
+  "ein Superheldenfilm","eine Netflix-Serie","ein Disney-Film","ein Videospiel","eine Spielkonsole",
+  "eine Ausrede, um zu spät zu kommen","etwas, das auf jeder Party fehlt","etwas im Büro","etwas im Portemonnaie",
+  "etwas, das immer kaputt ist","etwas, das man verleiht und nie zurückbekommt","ein Grund für schlechte Laune",
+  "etwas, das teuer ist","etwas, das man an Montagen hasst","eine typische Diät-Ausrede","ein Trend, der nervt",
+  "etwas aus den 90ern","etwas, das es früher nicht gab","ein Getränk mit Alkohol","eine Kaffeesorte",
+  "etwas, das man beim Camping braucht","etwas im Werkzeugkasten","eine Ausrede fürs Fitnessstudio",
+  "ein peinliches Tanzmove-Wort","etwas, das man googelt","ein Passwort, das schlecht ist",
+  "ein berühmtes Paar","ein Zeichentrick für Erwachsene","eine Comicfigur","ein Bond-Film oder -Wort",
+  "etwas, das man in den Urlaub mitnimmt","eine Wintersportart","eine Wassersportart","ein Kartenspiel",
+  "ein Tier, vor dem man Angst hat","etwas, das man nachts hört","ein Geräusch","ein Duft oder Geruch",
+  "etwas Romantisches","etwas, das im Kühlschrank abläuft","eine typische WG-Streitsache","ein Wochentag-Gefühl",
+  "eine berühmte Firma","eine Suchmaschine oder Website","ein Emoji (beschreibe es)","ein Meme","eine Chipssorte"
+];
+
+const app = document.getElementById("app");
+const flash = document.getElementById("flash");
+
+let pack = localStorage.getItem("wb_pack") || "familie";
+let zeit = localStorage.getItem("wb_zeit") || "normal";
+
+const ZEITEN = { kurz: [8000, 18000], normal: [15000, 32000], lang: [26000, 48000] };
+
+let audioCtx = null;
+let tickTimer = null;
+let running = false;
+let startTime = 0;
+let fuseMs = 0;
+let aktuelleKat = "";
+
+function katListe() {
+  if (pack === "familie") return FAMILIE;
+  if (pack === "party") return PARTY;
+  return FAMILIE.concat(PARTY);
+}
+
+function initAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function ton(freq, dauer, typ) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = typ || "square";
+  o.frequency.value = freq;
+  g.gain.value = 0.0001;
+  o.connect(g); g.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dauer);
+  o.start(t); o.stop(t + dauer + 0.02);
+}
+
+function tick() { ton(1000, 0.04); }
+
+function explosionSound() {
+  if (!audioCtx) return;
+  const bufferSize = audioCtx.sampleRate * 0.6;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.6;
+  src.connect(g); g.connect(audioCtx.destination);
+  src.start();
+  ton(70, 0.5, "sawtooth");
+}
+
+function startScreen() {
+  running = false;
+  clearTimeout(tickTimer);
+  app.className = "scroll";
+  app.innerHTML = `
+    <div class="emoji-big">💣</div>
+    <h1>WORTBOMBE</h1>
+    <p class="sub">Sag reihum ein passendes Wort und gib das Handy schnell weiter.<br>Bei wem es BUMM macht, verliert!</p>
+    <div class="card">
+      <div class="label">Kategorien</div>
+      <div class="opts" id="packs">
+        <button class="opt" data-v="familie">Familie</button>
+        <button class="opt" data-v="party">Party</button>
+        <button class="opt" data-v="alle">Alle</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Zündschnur</div>
+      <div class="opts" id="zeiten">
+        <button class="opt" data-v="kurz">Kurz</button>
+        <button class="opt" data-v="normal">Normal</button>
+        <button class="opt" data-v="lang">Lang</button>
+      </div>
+    </div>
+    <button class="btn" id="start">Bombe zünden 💥</button>
+  `;
+  markiere("packs", pack);
+  markiere("zeiten", zeit);
+  document.querySelectorAll("#packs .opt").forEach(b => b.onclick = () => {
+    pack = b.dataset.v; localStorage.setItem("wb_pack", pack); markiere("packs", pack);
+  });
+  document.querySelectorAll("#zeiten .opt").forEach(b => b.onclick = () => {
+    zeit = b.dataset.v; localStorage.setItem("wb_zeit", zeit); markiere("zeiten", zeit);
+  });
+  document.getElementById("start").onclick = () => { initAudio(); starteRunde(); };
+}
+
+function markiere(gruppe, wert) {
+  document.querySelectorAll("#" + gruppe + " .opt").forEach(b =>
+    b.classList.toggle("active", b.dataset.v === wert));
+}
+
+function neueKat() {
+  const liste = katListe();
+  let k;
+  do { k = liste[Math.floor(Math.random() * liste.length)]; } while (k === aktuelleKat && liste.length > 1);
+  aktuelleKat = k;
+}
+
+function starteRunde() {
+  app.className = "";
+  neueKat();
+  const [min, max] = ZEITEN[zeit];
+  fuseMs = min + Math.random() * (max - min);
+  startTime = performance.now();
+  running = true;
+  app.innerHTML = `
+    <p class="kat-lead">Nenne …</p>
+    <div class="kat" id="katText">${aktuelleKat}</div>
+    <div class="bomb shake">💣</div>
+    <p class="sub">… und gib schnell weiter! 🔥</p>
+    <button class="btn ghost" id="neueKat">Andere Kategorie</button>
+  `;
+  document.getElementById("neueKat").onclick = () => {
+    neueKat();
+    document.getElementById("katText").textContent = aktuelleKat;
+  };
+  tickLoop();
+}
+
+function tickLoop() {
+  if (!running) return;
+  const elapsed = performance.now() - startTime;
+  const left = fuseMs - elapsed;
+  if (left <= 0) { explode(); return; }
+  tick();
+  const frac = left / fuseMs;
+  const interval = 90 + frac * 520;
+  tickTimer = setTimeout(tickLoop, interval);
+}
+
+function explode() {
+  running = false;
+  clearTimeout(tickTimer);
+  explosionSound();
+  if (navigator.vibrate) navigator.vibrate([120, 60, 200]);
+  flash.classList.add("on");
+  setTimeout(() => flash.classList.remove("on"), 220);
+  app.className = "";
+  app.innerHTML = `
+    <div class="emoji-big">💥</div>
+    <h1>BUMM!</h1>
+    <p class="sub">Wer das Handy hält, hat verloren.<br>Ein Minuspunkt – oder eine Mutprobe! 😄</p>
+    <button class="btn" id="nochmal">Nächste Runde</button>
+    <button class="btn ghost" id="menu">Menü</button>
+  `;
+  document.getElementById("nochmal").onclick = starteRunde;
+  document.getElementById("menu").onclick = startScreen;
+}
+
+startScreen();
+
+if ("serviceWorker" in navigator) {
+  if (navigator.serviceWorker.controller) {
+    let neuGeladen = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (neuGeladen) return;
+      neuGeladen = true;
+      location.reload();
+    });
+  }
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>
