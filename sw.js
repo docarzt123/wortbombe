@@ -1,4 +1,4 @@
-const CACHE = "wortbombe-v2";
+const CACHE = "wortbombe-v3";
 const DATEIEN = [".", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 // Beim Installieren möglichst alles cachen. Ein Fehlschlag einzelner Dateien

@@ -281,6 +281,13 @@ if ("serviceWorker" in navigator) {
     });
   }
   navigator.serviceWorker.register("sw.js");
+  if ("caches" in window) {
+    caches.open("wortbombe-v3").then((c) =>
+      Promise.all(["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"].map((u) =>
+        fetch(u, { cache: "reload" }).then((r) => (r && r.ok ? c.put(u, r) : null)).catch(() => null)
+      ))
+    );
+  }
 }
 </script>
 </body>
